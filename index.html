@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Webcam Haircut Filters</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">✂️</div>
+      <div>
+        <div class="title">Haircut Filter Cam</div>
+        <div class="subtitle">Try styles live before you hit the barber</div>
+      </div>
+    </div>
+
+    <div class="status">
+      <span id="statusDot" class="dot"></span>
+      <span id="statusText">Initializing…</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage">
+      <div class="videoWrap">
+        <video id="video" playsinline autoplay muted></video>
+        <canvas id="overlay"></canvas>
+
+        <div class="hint">
+          <strong>Tip:</strong> Good lighting + face centered = best tracking.
+        </div>
+      </div>
+
+      <div class="stageActions">
+        <button id="btnStart" class="btn primary">Start Camera</button>
+        <button id="btnStop" class="btn">Stop</button>
+        <button id="btnSnap" class="btn">Snapshot</button>
+        <a id="downloadLink" class="btn ghost" download="haircut_snapshot.png" style="display:none;">Download</a>
+      </div>
+
+      <div class="notes" id="notes"></div>
+    </section>
+
+    <aside class="panel">
+      <h2>Styles</h2>
+
+      <div class="row">
+        <label for="style">Haircut</label>
+        <select id="style">
+          <option value="fade">Low Fade</option>
+          <option value="buzz">Buzz Cut</option>
+          <option value="fringe">Textured Fringe</option>
+          <option value="pompadour">Pompadour</option>
+          <option value="long">Long Hair</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="hairColor">Hair color</label>
+        <input id="hairColor" type="color" value="#2b1b10" />
+      </div>
+
+      <div class="row">
+        <label for="opacity">Opacity <span class="val" id="opacityVal"></span></label>
+        <input id="opacity" type="range" min="0" max="100" value="65" />
+      </div>
+
+      <div class="row">
+        <label for="scale">Scale <span class="val" id="scaleVal"></span></label>
+        <input id="scale" type="range" min="70" max="140" value="100" />
+      </div>
+
+      <div class="row two">
+        <div>
+          <label for="xOffset">X offset <span class="val" id="xVal"></span></label>
+          <input id="xOffset" type="range" min="-80" max="80" value="0" />
+        </div>
+        <div>
+          <label for="yOffset">Y offset <span class="val" id="yVal"></span></label>
+          <input id="yOffset" type="range" min="-120" max="120" value="0" />
+        </div>
+      </div>
+
+      <div class="row">
+        <label class="check">
+          <input id="mirror" type="checkbox" checked />
+          Mirror preview (like a selfie)
+        </label>
+      </div>
+
+      <hr />
+
+      <h2>Optional: Use a PNG hair asset</h2>
+      <p class="small">
+        If you have a <strong>transparent PNG</strong> of a haircut, you can overlay it and align it with the sliders.
+      </p>
+
+      <div class="row">
+        <label for="asset">Hair PNG (transparent)</label>
+        <input id="asset" type="file" accept="image/png" />
+      </div>
+
+      <div class="row">
+        <label class="check">
+          <input id="useAsset" type="checkbox" />
+          Use PNG asset instead of vector style
+        </label>
+      </div>
+
+      <div class="footerSmall">
+        Runs fully in-browser. No uploads (unless you choose a local PNG).
+      </div>
+    </aside>
+  </main>
+
+  <!-- MediaPipe FaceMesh (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+
+  <script src="app.js"></script>
+</body>
+</html>
