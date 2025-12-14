@@ -1,6 +1,7 @@
-// Webcam Haircut Filters
-// - Uses MediaPipe FaceMesh for landmarks
-// - Draws lightweight vector hair overlays OR an optional transparent PNG "hair asset"
+// Webcam Haircut Filters (fixed MediaPipe globals)
+// Works with CDN scripts:
+// - @mediapipe/camera_utils/camera_utils.js  -> global: Camera
+// - @mediapipe/face_mesh/face_mesh.js        -> global: FaceMesh
 
 const els = {
   video: document.getElementById("video"),
@@ -53,7 +54,6 @@ const state = {
 
 // ---------- UI helpers ----------
 function setStatus(kind, text) {
-  // kind: "warn" | "ok" | "err"
   els.statusText.textContent = text;
   if (kind === "ok") {
     els.statusDot.style.background = "#31d07a";
@@ -102,10 +102,7 @@ function hexToRgba(hex, a = 1) {
 
 // ---------- Landmark utilities ----------
 function lmToPx(lm) {
-  return {
-    x: lm.x * els.overlay.width,
-    y: lm.y * els.overlay.height,
-  };
+  return { x: lm.x * els.overlay.width, y: lm.y * els.overlay.height };
 }
 
 function dist(a, b) {
@@ -118,14 +115,7 @@ function avgPoint(...pts) {
   return { x: s.x / pts.length, y: s.y / pts.length };
 }
 
-// Indices used (FaceMesh):
-// - left temple-ish: 127
-// - right temple-ish: 356
-// - forehead upper mid: 10
-// - nose bridge: 6
-// - chin: 152
-// - left jaw: 234
-// - right jaw: 454
+// FaceMesh landmark indices (stable enough for this overlay style)
 const IDX = {
   leftTemple: 127,
   rightTemple: 356,
@@ -136,7 +126,7 @@ const IDX = {
   rightJaw: 454,
 };
 
-// ---------- Drawing: hair overlays ----------
+// ---------- Drawing ----------
 function beginMirroredDraw() {
   ctx.save();
   if (state.mirror) {
@@ -144,14 +134,8 @@ function beginMirroredDraw() {
     ctx.scale(-1, 1);
   }
 }
-
-function endMirroredDraw() {
-  ctx.restore();
-}
-
-function clearOverlay() {
-  ctx.clearRect(0, 0, els.overlay.width, els.overlay.height);
-}
+function endMirroredDraw() { ctx.restore(); }
+function clearOverlay() { ctx.clearRect(0, 0, els.overlay.width, els.overlay.height); }
 
 function drawSoftShadowPath(pathFn, fillStyle, shadowAlpha = 0.35) {
   ctx.save();
@@ -168,7 +152,6 @@ function drawSoftShadowPath(pathFn, fillStyle, shadowAlpha = 0.35) {
 function drawHairVector(style, landmarks) {
   if (!landmarks || style === "none") return;
 
-  // Convert key points
   const lt = lmToPx(landmarks[IDX.leftTemple]);
   const rt = lmToPx(landmarks[IDX.rightTemple]);
   const ft = lmToPx(landmarks[IDX.foreheadTop]);
@@ -177,17 +160,14 @@ function drawHairVector(style, landmarks) {
   const lj = lmToPx(landmarks[IDX.leftJaw]);
   const rj = lmToPx(landmarks[IDX.rightJaw]);
 
-  // Face scale heuristic
   const faceWidth = dist(lt, rt);
   const faceHeight = dist(ft, chin);
   const base = Math.max(80, (faceWidth + faceHeight) * 0.35);
 
-  // Apply user tuning
   const sx = state.scale;
   const ox = state.xOffset;
   const oy = state.yOffset;
 
-  // Anchor near forehead
   const headCenter = avgPoint(lt, rt, ft);
   const cx = headCenter.x + ox;
   const cy = headCenter.y + oy;
@@ -195,16 +175,13 @@ function drawHairVector(style, landmarks) {
   const hairColor = hexToRgba(state.color, state.opacity);
   const hairDark = hexToRgba(state.color, clamp(state.opacity + 0.12, 0, 1));
 
-  // Common hairline points (approx): use temples and a point slightly below forehead-top
   const hairlineMid = avgPoint(ft, nb);
-  const topY = ft.y - base * 0.55 * sx; // hair volume height above forehead
+  const topY = ft.y - base * 0.55 * sx;
 
   const leftX = lt.x - base * 0.10 * sx;
   const rightX = rt.x + base * 0.10 * sx;
 
-  // Draw styles
   if (style === "buzz") {
-    // tight cap around scalp
     drawSoftShadowPath(() => {
       ctx.moveTo(leftX, lt.y);
       ctx.quadraticCurveTo(cx, topY, rightX, rt.y);
@@ -213,7 +190,6 @@ function drawHairVector(style, landmarks) {
       ctx.closePath();
     }, hairColor, 0.22);
 
-    // subtle stubble gradient band
     ctx.save();
     ctx.globalAlpha = 0.35 * state.opacity;
     ctx.fillStyle = hairDark;
@@ -228,7 +204,6 @@ function drawHairVector(style, landmarks) {
   }
 
   if (style === "fade") {
-    // top volume + faded sides
     drawSoftShadowPath(() => {
       ctx.moveTo(leftX, lt.y);
       ctx.quadraticCurveTo(cx, topY, rightX, rt.y);
@@ -237,7 +212,6 @@ function drawHairVector(style, landmarks) {
       ctx.closePath();
     }, hairColor, 0.28);
 
-    // fade sides (semi-transparent gradients)
     const fadeTop = (lt.y + rt.y) / 2;
     const fadeBottom = avgPoint(lj, rj, chin).y - base * 0.10 * sx;
 
@@ -272,7 +246,6 @@ function drawHairVector(style, landmarks) {
   }
 
   if (style === "fringe") {
-    // top cap
     drawSoftShadowPath(() => {
       ctx.moveTo(leftX, lt.y);
       ctx.quadraticCurveTo(cx, topY, rightX, rt.y);
@@ -281,7 +254,6 @@ function drawHairVector(style, landmarks) {
       ctx.closePath();
     }, hairColor, 0.3);
 
-    // textured fringe spikes over forehead
     ctx.save();
     ctx.fillStyle = hairDark;
     ctx.globalAlpha = 0.55 * state.opacity;
@@ -304,7 +276,6 @@ function drawHairVector(style, landmarks) {
   }
 
   if (style === "pompadour") {
-    // high volume sweep
     drawSoftShadowPath(() => {
       ctx.moveTo(leftX, lt.y + base * 0.08 * sx);
       ctx.bezierCurveTo(
@@ -317,7 +288,6 @@ function drawHairVector(style, landmarks) {
       ctx.closePath();
     }, hairColor, 0.33);
 
-    // highlight ridge
     ctx.save();
     ctx.strokeStyle = hexToRgba("#ffffff", 0.12 * state.opacity);
     ctx.lineWidth = Math.max(2, base * 0.02 * sx);
@@ -334,29 +304,24 @@ function drawHairVector(style, landmarks) {
   }
 
   if (style === "long") {
-    // top cap + side drape down to jaw/chin
     drawSoftShadowPath(() => {
       ctx.moveTo(leftX, lt.y);
       ctx.quadraticCurveTo(cx, topY, rightX, rt.y);
 
-      // right drape
       ctx.bezierCurveTo(
         rt.x + base * 0.25 * sx, rt.y + base * 0.45 * sx,
         rj.x + base * 0.25 * sx, rj.y + base * 0.65 * sx,
         cx + base * 0.12 * sx, chin.y + base * 0.35 * sx
       );
 
-      // left drape
       ctx.bezierCurveTo(
         cx - base * 0.12 * sx, chin.y + base * 0.35 * sx,
         lj.x - base * 0.25 * sx, lj.y + base * 0.65 * sx,
         lt.x - base * 0.25 * sx, lt.y + base * 0.45 * sx
       );
-
       ctx.closePath();
     }, hairColor, 0.34);
 
-    // inner strands
     ctx.save();
     ctx.globalAlpha = 0.28 * state.opacity;
     ctx.strokeStyle = hairDark;
@@ -407,8 +372,9 @@ function drawHairAsset(landmarks) {
 
 // ---------- MediaPipe pipeline ----------
 function initFaceMesh() {
-  faceMesh = new FaceMesh.FaceMesh({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+  // IMPORTANT: FaceMesh is a global constructor from the CDN script
+  faceMesh = new FaceMesh({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
   });
 
   faceMesh.setOptions({
@@ -421,19 +387,14 @@ function initFaceMesh() {
   faceMesh.onResults((results) => {
     resizeCanvasToVideo();
     clearOverlay();
-
     beginMirroredDraw();
 
-    // Keep last landmarks for snapshot or if results flicker
-    if (results.multiFaceLandmarks && results.multiFaceLandmarks[0]) {
-      lastLandmarks = results.multiFaceLandmarks[0];
+    const lm = results.multiFaceLandmarks?.[0] || null;
+    if (lm) {
+      lastLandmarks = lm;
 
-      // draw hair
-      if (state.useAsset) {
-        drawHairAsset(lastLandmarks);
-      } else {
-        drawHairVector(state.style, lastLandmarks);
-      }
+      if (state.useAsset) drawHairAsset(lm);
+      else drawHairVector(state.style, lm);
 
       setStatus("ok", "Tracking");
       setNote("");
@@ -453,7 +414,7 @@ async function startCamera() {
 
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false
+      audio: false,
     });
 
     els.video.srcObject = stream;
@@ -461,8 +422,8 @@ async function startCamera() {
 
     resizeCanvasToVideo();
 
-    // MediaPipe camera helper
-    camera = new Camera.Camera(els.video, {
+    // IMPORTANT: Camera is a global constructor from the CDN script
+    camera = new Camera(els.video, {
       onFrame: async () => {
         if (!faceMesh) return;
         await faceMesh.send({ image: els.video });
@@ -477,7 +438,7 @@ async function startCamera() {
   } catch (err) {
     console.error(err);
     setStatus("err", "Camera blocked");
-    setNote("Tip: Open this page via https or http://localhost, then allow camera access.");
+    setNote("Open via https or http://localhost and allow camera access.");
   }
 }
 
@@ -487,11 +448,11 @@ function stopCamera() {
     camera = null;
 
     if (stream) {
-      stream.getTracks().forEach(t => t.stop());
+      stream.getTracks().forEach((t) => t.stop());
       stream = null;
     }
-    els.video.srcObject = null;
 
+    els.video.srcObject = null;
     clearOverlay();
     setStatus("warn", "Stopped");
     setNote("");
@@ -503,7 +464,6 @@ function stopCamera() {
 function snapshot() {
   resizeCanvasToVideo();
 
-  // Create a combined image of the (mirrored) video + overlay
   const out = document.createElement("canvas");
   out.width = els.overlay.width;
   out.height = els.overlay.height;
@@ -518,8 +478,7 @@ function snapshot() {
   octx.drawImage(els.video, 0, 0, out.width, out.height);
   octx.restore();
 
-  // Overlay is already mirrored in drawing, but the overlay canvas itself is in normal coords.
-  // So we need to apply the same mirror transform when drawing overlay too.
+  // Draw overlay with same mirror transform
   octx.save();
   if (state.mirror) {
     octx.translate(out.width, 0);
@@ -549,7 +508,7 @@ function wireUI() {
     syncLabels();
   };
 
-  ["change", "input"].forEach(evt => {
+  ["change", "input"].forEach((evt) => {
     els.style.addEventListener(evt, updateState);
     els.hairColor.addEventListener(evt, updateState);
     els.opacity.addEventListener(evt, updateState);
@@ -582,7 +541,6 @@ function wireUI() {
   els.btnStop.addEventListener("click", stopCamera);
   els.btnSnap.addEventListener("click", snapshot);
 
-  // If user changes mirror, we should clear old artifacts instantly
   els.mirror.addEventListener("change", () => clearOverlay());
 }
 
@@ -590,7 +548,19 @@ function wireUI() {
 (function boot() {
   if (!navigator.mediaDevices?.getUserMedia) {
     setStatus("err", "Unsupported browser");
-    setNote("Your browser doesn't support getUserMedia(). Try a modern Chrome/Firefox.");
+    setNote("Your browser doesn't support getUserMedia(). Try modern Chrome/Firefox.");
+    return;
+  }
+
+  // If CDN failed to load, FaceMesh will be undefined — show a helpful message
+  if (typeof FaceMesh === "undefined") {
+    setStatus("err", "FaceMesh not loaded");
+    setNote("CDN script failed. Check your <script> tags and network console.");
+    return;
+  }
+  if (typeof Camera === "undefined") {
+    setStatus("err", "Camera utils not loaded");
+    setNote("CDN camera_utils failed. Check your <script> tags and network console.");
     return;
   }
 
